@@ -1,6 +1,6 @@
 #!/bin/bash
 # RKN Watcher - Полная система защиты от ТСПУ и GeoIP фильтрации
-# Версия: 15.0 - ПОЛНАЯ ВЕРСИЯ СО ВСЕМ ФУНКЦИОНАЛОМ
+# Версия: 17.0 - ПОЛНАЯ ВЕРСИЯ, ВСЕГДА ПОКАЗЫВАЕТ МЕНЮ
 # Включено: TSPUBLOCK, GOVIPS, GeoIP фильтрация, Белый список стран/IP/портов,
 # UFW интеграция, Расписание обновлений, Статистика, Логи, Полное удаление,
 # Симлинк, Демон, Автообновление, Ручное обновление, Управление блокировками
@@ -43,15 +43,6 @@ check_root() {
     if [[ $EUID -ne 0 ]]; then
         error "Этот скрипт должен запускаться от root (sudo)"
         exit 1
-    fi
-}
-
-# Проверка установки
-is_installed() {
-    if [[ -d "$INSTALL_DIR" ]] && [[ -f "$INSTALL_DIR/rkn-watcher-daemon.py" ]] && [[ -f "$INSTALL_DIR/geoip_firewall.py" ]]; then
-        return 0
-    else
-        return 1
     fi
 }
 
@@ -285,8 +276,11 @@ def main():
     elif len(sys.argv) > 1 and sys.argv[1] == "status":
         result = subprocess.run(["iptables", "-L", "GEOIP_DROP", "-v", "-n"], capture_output=True, text=True)
         print(result.stdout)
+    elif len(sys.argv) > 1 and sys.argv[1] == "show-config":
+        config = load_whitelist()
+        print(json.dumps(config, indent=2))
     else:
-        print("Использование: geoip_firewall.py [apply|status]")
+        print("Использование: geoip_firewall.py [apply|status|show-config]")
 
 if __name__ == "__main__":
     main()
@@ -1899,55 +1893,38 @@ main_menu() {
         echo -e "${CYAN}              RKN WATCHER - ЗАЩИТА ОТ ТСПУ И GEOIP${NC}"
         title
         echo ""
-        
-        if is_installed; then
-            echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-            echo -e "${GREEN}                      РЕЖИМ УПРАВЛЕНИЯ${NC}"
-            echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-            echo ""
-            echo "1) Управление блокировками (TSPUBLOCK + GOVIPS)"
-            echo "2) Настройка GeoIP фильтрации"
-            echo "3) Настройка UFW (интеграция)"
-            echo "4) Настройка расписания обновлений"
-            echo "5) Ручное обновление списков"
-            echo "6) Просмотр статистики"
-            echo "7) Просмотр логов"
-            echo "8) Удаление (частичное или полное)"
-            echo "9) Переустановка"
-            echo "0) Выход"
-        else
-            echo -e "${RED}════════════════════════════════════════════════════════════════${NC}"
-            echo -e "${RED}                      РЕЖИМ УСТАНОВКИ${NC}"
-            echo -e "${RED}════════════════════════════════════════════════════════════════${NC}"
-            echo ""
-            echo "1) Установка"
-            echo "0) Выход"
-        fi
-        
+        echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}                      ГЛАВНОЕ МЕНЮ${NC}"
+        echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo "1) Установка"
+        echo "2) Управление блокировками (TSPUBLOCK + GOVIPS)"
+        echo "3) Настройка GeoIP фильтрации"
+        echo "4) Настройка UFW (интеграция)"
+        echo "5) Настройка расписания обновлений"
+        echo "6) Ручное обновление списков"
+        echo "7) Просмотр статистики"
+        echo "8) Просмотр логов"
+        echo "9) Удаление (частичное или полное)"
+        echo "10) Переустановка"
+        echo "0) Выход"
         echo ""
         read -p "Выберите пункт: " choice
         
-        if is_installed; then
-            case $choice in
-                1) block_management_menu ;;
-                2) geoip_config_menu ;;
-                3) ufw_config_menu ;;
-                4) schedule_menu ;;
-                5) manual_update ;;
-                6) show_block_stats ;;
-                7) show_logs ;;
-                8) uninstall_menu ;;
-                9) reinstall_menu ;;
-                0) echo "Выход..."; exit 0 ;;
-                *) error "Неверный выбор"; sleep 2 ;;
-            esac
-        else
-            case $choice in
-                1) install_menu ;;
-                0) echo "Выход..."; exit 0 ;;
-                *) error "Неверный выбор"; sleep 2 ;;
-            esac
-        fi
+        case $choice in
+            1) install_menu ;;
+            2) block_management_menu ;;
+            3) geoip_config_menu ;;
+            4) ufw_config_menu ;;
+            5) schedule_menu ;;
+            6) manual_update ;;
+            7) show_block_stats ;;
+            8) show_logs ;;
+            9) uninstall_menu ;;
+            10) reinstall_menu ;;
+            0) echo "Выход..."; exit 0 ;;
+            *) error "Неверный выбор"; sleep 2 ;;
+        esac
     done
 }
 
