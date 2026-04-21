@@ -1,9 +1,7 @@
 #!/bin/bash
 # RKN Watcher - Полная система защиты от ТСПУ и GeoIP фильтрации
-# Версия: 17.0 - ПОЛНАЯ ВЕРСИЯ, ВСЕГДА ПОКАЗЫВАЕТ МЕНЮ
-# Включено: TSPUBLOCK, GOVIPS, GeoIP фильтрация, Белый список стран/IP/портов,
-# UFW интеграция, Расписание обновлений, Статистика, Логи, Полное удаление,
-# Симлинк, Демон, Автообновление, Ручное обновление, Управление блокировками
+# Версия: 1.0 - ПОЛНАЯ ВЕРСИЯ
+# GitHub: https://github.com/Balbuto/RCN
 
 set -e
 
@@ -46,6 +44,15 @@ check_root() {
     fi
 }
 
+# Проверка установки
+is_installed() {
+    if [[ -d "$INSTALL_DIR" ]] && [[ -f "$INSTALL_DIR/rkn-watcher-daemon.py" ]] && [[ -f "$INSTALL_DIR/geoip_firewall.py" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Проверка наличия UFW
 check_ufw() {
     command -v ufw &> /dev/null && return 0 || return 1
@@ -59,7 +66,7 @@ download_tspublock_list() {
     local url="https://github.com/tread-lightly/CyberOK_Skipa_ips/raw/refs/heads/main/lists/skipa_cidr.txt"
     local temp_file="/tmp/tspublock.txt"
     
-    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file"; then
+    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file" 2>/dev/null; then
         ipset create TSPUIPS hash:net maxelem 1000000 2>/dev/null || ipset flush TSPUIPS
         local count=0
         while IFS= read -r line; do
@@ -84,7 +91,7 @@ download_govips_list() {
     local url="https://raw.githubusercontent.com/C24Be/AS_Network_List/main/blacklists_iptables/blacklist-v4.ipset"
     local temp_file="/tmp/govips.txt"
     
-    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file"; then
+    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file" 2>/dev/null; then
         ipset create GOVIPS hash:net maxelem 1000000 2>/dev/null || ipset flush GOVIPS
         local count=0
         while IFS= read -r line; do
@@ -162,12 +169,12 @@ toggle_govips() {
 # Сохранение правил
 save_rules() {
     info "Сохранение правил..."
-    ipset save > /etc/ipset.conf
+    ipset save > /etc/ipset.conf 2>/dev/null
     if command -v netfilter-persistent &> /dev/null; then
-        netfilter-persistent save
+        netfilter-persistent save 2>/dev/null
     else
         mkdir -p /etc/iptables
-        iptables-save > /etc/iptables/rules.v4
+        iptables-save > /etc/iptables/rules.v4 2>/dev/null
     fi
     success "Правила сохранены"
 }
@@ -1546,8 +1553,13 @@ install_menu() {
     
     # Установка зависимостей
     info "Установка системных зависимостей..."
-    apt update
-    apt install -y iptables ipset curl python3 python3-venv python3-pip cron netfilter-persistent
+    apt update -qq 2>/dev/null
+    apt install -y -qq iptables ipset curl python3 python3-venv python3-pip cron 2>/dev/null
+    
+    # Устанавливаем netfilter-persistent без конфликта с ufw
+    if ! command -v netfilter-persistent &> /dev/null; then
+        apt install -y -qq iptables-persistent 2>/dev/null || true
+    fi
     
     # Настройка GeoIP фильтрации
     echo ""
@@ -1572,7 +1584,7 @@ install_menu() {
     read -p "Включить автоматическое обновление? (y/n): " auto_update
     
     if [[ "$setup_ufw" == "y" ]]; then
-        apt install -y ufw
+        apt install -y -qq ufw 2>/dev/null
         success "UFW установлен"
     fi
     
@@ -1612,9 +1624,9 @@ EOF
     
     # Создание виртуального окружения
     info "Создание виртуального окружения Python..."
-    python3 -m venv "$VENV_DIR"
-    "$VENV_DIR/bin/pip" install --upgrade pip
-    "$VENV_DIR/bin/pip" install requests urllib3
+    python3 -m venv "$VENV_DIR" 2>/dev/null
+    "$VENV_DIR/bin/pip" install --upgrade pip -q 2>/dev/null
+    "$VENV_DIR/bin/pip" install requests urllib3 -q 2>/dev/null
     success "Виртуальное окружение создано"
     
     # СОЗДАНИЕ ВСЕХ СКРИПТОВ
@@ -1893,38 +1905,55 @@ main_menu() {
         echo -e "${CYAN}              RKN WATCHER - ЗАЩИТА ОТ ТСПУ И GEOIP${NC}"
         title
         echo ""
-        echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}                      ГЛАВНОЕ МЕНЮ${NC}"
-        echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo "1) Установка"
-        echo "2) Управление блокировками (TSPUBLOCK + GOVIPS)"
-        echo "3) Настройка GeoIP фильтрации"
-        echo "4) Настройка UFW (интеграция)"
-        echo "5) Настройка расписания обновлений"
-        echo "6) Ручное обновление списков"
-        echo "7) Просмотр статистики"
-        echo "8) Просмотр логов"
-        echo "9) Удаление (частичное или полное)"
-        echo "10) Переустановка"
-        echo "0) Выход"
+        
+        if is_installed; then
+            echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+            echo -e "${GREEN}                      РЕЖИМ УПРАВЛЕНИЯ${NC}"
+            echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+            echo ""
+            echo "1) Управление блокировками (TSPUBLOCK + GOVIPS)"
+            echo "2) Настройка GeoIP фильтрации"
+            echo "3) Настройка UFW (интеграция)"
+            echo "4) Настройка расписания обновлений"
+            echo "5) Ручное обновление списков"
+            echo "6) Просмотр статистики"
+            echo "7) Просмотр логов"
+            echo "8) Удаление (частичное или полное)"
+            echo "9) Переустановка"
+            echo "0) Выход"
+        else
+            echo -e "${RED}════════════════════════════════════════════════════════════════${NC}"
+            echo -e "${RED}                      РЕЖИМ УСТАНОВКИ${NC}"
+            echo -e "${RED}════════════════════════════════════════════════════════════════${NC}"
+            echo ""
+            echo "1) Установка"
+            echo "0) Выход"
+        fi
+        
         echo ""
         read -p "Выберите пункт: " choice
         
-        case $choice in
-            1) install_menu ;;
-            2) block_management_menu ;;
-            3) geoip_config_menu ;;
-            4) ufw_config_menu ;;
-            5) schedule_menu ;;
-            6) manual_update ;;
-            7) show_block_stats ;;
-            8) show_logs ;;
-            9) uninstall_menu ;;
-            10) reinstall_menu ;;
-            0) echo "Выход..."; exit 0 ;;
-            *) error "Неверный выбор"; sleep 2 ;;
-        esac
+        if is_installed; then
+            case $choice in
+                1) block_management_menu ;;
+                2) geoip_config_menu ;;
+                3) ufw_config_menu ;;
+                4) schedule_menu ;;
+                5) manual_update ;;
+                6) show_block_stats ;;
+                7) show_logs ;;
+                8) uninstall_menu ;;
+                9) reinstall_menu ;;
+                0) echo "Выход..."; exit 0 ;;
+                *) error "Неверный выбор"; sleep 2 ;;
+            esac
+        else
+            case $choice in
+                1) install_menu ;;
+                0) echo "Выход..."; exit 0 ;;
+                *) error "Неверный выбор"; sleep 2 ;;
+            esac
+        fi
     done
 }
 
