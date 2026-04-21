@@ -1,6 +1,6 @@
 #!/bin/bash
 # RKN Watcher - Полная система защиты от ТСПУ и GeoIP фильтрации
-# Версия: 1.0 - ПОЛНАЯ ВЕРСИЯ
+# Версия: 1.0 beta - ПОЛНАЯ ВЕРСИЯ
 # GitHub: https://github.com/Balbuto/RCN
 
 set -e
