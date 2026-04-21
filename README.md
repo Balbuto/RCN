@@ -43,18 +43,15 @@ cron, netfilter-persistent
 ufw (опционально)
 
 ## Установка
-### Способ 1: Прямая установка (рекомендуемый)
-```bash
-curl -sSL https://raw.githubusercontent.com/Balbuto/RCN/main/rkn-watcher.sh | sudo bash
-```
-### Способ 2: Установка из репозитория
+
+### Способ 1: Установка из репозитория
 ```bash
 git clone https://github.com/Balbuto/RCN.git
 cd RCN
 chmod +x rkn-watcher.sh
 sudo ./rkn-watcher.sh
 ```
-### Способ 3: Ручная установка
+### Способ 2: Ручная установка
 ```bash
 wget https://raw.githubusercontent.com/Balbuto/RCN/main/rkn-watcher.sh
 chmod +x rkn-watcher.sh
