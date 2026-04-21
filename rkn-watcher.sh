@@ -137,6 +137,13 @@ ensure_chains() {
 # Настройка правил TSPUBLOCK
 setup_tspublock_rules() {
     local log_enable=$1
+    
+    # ПРОВЕРЯЕМ СУЩЕСТВОВАНИЕ IPSET СПИСКА
+    if ! ipset list TSPUIPS &>/dev/null; then
+        warn "Список TSPUIPS не существует, создаю..."
+        ipset create TSPUIPS hash:net maxelem 1000000
+    fi
+    
     iptables -F TSPUBLOCK 2>/dev/null
     iptables -A TSPUBLOCK -p tcp --tcp-flags RST RST -m set --match-set TSPUIPS src -j DROP
     if [[ "$log_enable" == "y" ]]; then
@@ -148,6 +155,13 @@ setup_tspublock_rules() {
 # Настройка правил GOVIPS
 setup_govips_rules() {
     local log_enable=$1
+    
+    # ПРОВЕРЯЕМ СУЩЕСТВОВАНИЕ IPSET СПИСКА
+    if ! ipset list GOVIPS &>/dev/null; then
+        warn "Список GOVIPS не существует, создаю..."
+        ipset create GOVIPS hash:net maxelem 1000000
+    fi
+    
     iptables -F GOVBLOCK 2>/dev/null
     iptables -A GOVBLOCK -p tcp --tcp-flags RST RST -m set --match-set GOVIPS src -j DROP
     if [[ "$log_enable" == "y" ]]; then
