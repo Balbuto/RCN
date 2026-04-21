@@ -1,6 +1,6 @@
 #!/bin/bash
 # RKN Watcher - Полная система защиты от ТСПУ и GeoIP фильтрации
-# Версия: 14.0 - ПОЛНАЯ ВЕРСИЯ БЕЗ СОКРАЩЕНИЙ
+# Версия: 15.0 - ПОЛНАЯ ВЕРСИЯ СО ВСЕМ ФУНКЦИОНАЛОМ
 # Включено: TSPUBLOCK, GOVIPS, GeoIP фильтрация, Белый список стран/IP/портов,
 # UFW интеграция, Расписание обновлений, Статистика, Логи, Полное удаление,
 # Симлинк, Демон, Автообновление, Ручное обновление, Управление блокировками
@@ -285,11 +285,8 @@ def main():
     elif len(sys.argv) > 1 and sys.argv[1] == "status":
         result = subprocess.run(["iptables", "-L", "GEOIP_DROP", "-v", "-n"], capture_output=True, text=True)
         print(result.stdout)
-    elif len(sys.argv) > 1 and sys.argv[1] == "show-config":
-        config = load_whitelist()
-        print(json.dumps(config, indent=2))
     else:
-        print("Использование: geoip_firewall.py [apply|status|show-config]")
+        print("Использование: geoip_firewall.py [apply|status]")
 
 if __name__ == "__main__":
     main()
@@ -561,11 +558,14 @@ create_command() {
     rm -f /usr/bin/rkn-watcher
     rm -f /usr/local/bin/rkn-watcher
     
-    # Создаём симлинк на установленный скрипт
-    ln -sf "$INSTALL_DIR/rkn-watcher.sh" "$SYMLINK_PATH"
-    ln -sf "$INSTALL_DIR/rkn-watcher.sh" /usr/bin/rkn-watcher
+    # Копируем текущий скрипт в /usr/local/bin/rkn-watcher
+    cp "$0" "$SYMLINK_PATH"
+    chmod +x "$SYMLINK_PATH"
     
-    success "Команда создана: $SYMLINK_PATH -> $INSTALL_DIR/rkn-watcher.sh"
+    # Создаём ссылку в /usr/bin
+    ln -sf "$SYMLINK_PATH" /usr/bin/rkn-watcher
+    
+    success "Команда создана: $SYMLINK_PATH"
     success "Также доступна как: /usr/bin/rkn-watcher"
 }
 
@@ -1707,7 +1707,7 @@ EOF
     main_menu
 }
 
-# ==================== УДАЛЕНИЕ (С СОХРАНЕНИЕМ ОСНОВНОГО СКРИПТА) ====================
+# ==================== УДАЛЕНИЕ ====================
 
 uninstall_menu() {
     clear
@@ -1767,7 +1767,7 @@ uninstall_menu() {
     fi
     
     if [[ "$delete_type" == "1" ]]; then
-        info "Начинаю ЧАСТИЧНОЕ удаление RKN Watcher (сохраняя основной скрипт)..."
+        info "Начинаю ЧАСТИЧНОЕ удаление RKN Watcher..."
     else
         info "Начинаю ПОЛНОЕ удаление RKN Watcher..."
     fi
@@ -1852,7 +1852,7 @@ uninstall_menu() {
         info "Удаление основного скрипта..."
         rm -f "$INSTALL_DIR/rkn-watcher.sh"
         
-        # Удаление директории если она пуста или полностью
+        # Удаление директории
         rm -rf "$INSTALL_DIR"
         success "Директория $INSTALL_DIR удалена"
         
@@ -1877,7 +1877,7 @@ uninstall_menu() {
     echo "  sudo rm -rf /opt/rkn-watcher"
     echo "  sudo rm -f /usr/local/bin/rkn-watcher /usr/bin/rkn-watcher"
     echo ""
-    echo -e "${YELLOW}Или выберите пункт 'Полное удаление' в меню${NC}"
+    echo -e "${YELLOW}Или выберите пункт 2 'Полное удаление' при следующем запуске${NC}"
     echo ""
     
     read -p "Нажмите Enter для продолжения..."
