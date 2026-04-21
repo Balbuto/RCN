@@ -66,8 +66,15 @@ download_tspublock_list() {
     local url="https://github.com/tread-lightly/CyberOK_Skipa_ips/raw/refs/heads/main/lists/skipa_cidr.txt"
     local temp_file="/tmp/tspublock.txt"
     
-    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file" 2>/dev/null; then
-        ipset create TSPUIPS hash:net maxelem 1000000 2>/dev/null || ipset flush TSPUIPS
+    # ПРОВЕРЯЕМ И СОЗДАЁМ IPSET СПИСОК
+    if ! ipset list TSPUIPS &>/dev/null; then
+        info "Создание ipset списка TSPUIPS..."
+        ipset create TSPUIPS hash:net maxelem 1000000
+    else
+        ipset flush TSPUIPS
+    fi
+    
+    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file"; then
         local count=0
         while IFS= read -r line; do
             [[ -z "$line" || "$line" == \#* ]] && continue
@@ -91,8 +98,15 @@ download_govips_list() {
     local url="https://raw.githubusercontent.com/C24Be/AS_Network_List/main/blacklists_iptables/blacklist-v4.ipset"
     local temp_file="/tmp/govips.txt"
     
-    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file" 2>/dev/null; then
-        ipset create GOVIPS hash:net maxelem 1000000 2>/dev/null || ipset flush GOVIPS
+    # ПРОВЕРЯЕМ И СОЗДАЁМ IPSET СПИСОК
+    if ! ipset list GOVIPS &>/dev/null; then
+        info "Создание ipset списка GOVIPS..."
+        ipset create GOVIPS hash:net maxelem 1000000
+    else
+        ipset flush GOVIPS
+    fi
+    
+    if curl -sSL --connect-timeout 10 --max-time 30 "$url" -o "$temp_file"; then
         local count=0
         while IFS= read -r line; do
             if [[ "$line" =~ ^add\ blacklist-v4\ ([0-9\./]+) ]]; then
