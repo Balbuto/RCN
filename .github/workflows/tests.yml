@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Bash syntax check
+        run: |
+          bash -n installer.sh
+          bash -n rkn-watcher.sh
+
+      - name: Python syntax check
+        run: |
+          python3 -m py_compile config_tool.py geoip_apply.py
+
+      - name: Run mock tests
+        run: |
+          chmod +x tests/run_tests.sh
+          ./tests/run_tests.sh
