@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+import fcntl
+import ipaddress
+import json
+import os
+import sys
+import tempfile
+
+WHITELIST_FILE = "/etc/rkn-watcher/whitelist.json"
+BLACKLIST_FILE = "/etc/rkn-watcher/blacklist.json"
+
+DEFAULT_WHITELIST = {
+    "enabled": False,
+    "countries": [],
+    "ips": [],
+    "ports": []
+}
+
+DEFAULT_BLACKLIST = {
+    "ips": [],
+    "ports": []
+}
+
+
+def normalize_ip(value: str) -> str:
+    value = value.strip()
+    if "/" in value:
+        return str(ipaddress.ip_network(value, strict=False))
+    return str(ipaddress.ip_address(value))
+
+
+def normalize_port(value: str) -> int:
+    port = int(value)
+    if port < 1 or port > 65535:
+        raise ValueError("port out of range")
+    return port
+
+
+def normalize_country(value: str) -> str:
+    value = value.strip().upper()
+    if len(value) != 2 or not value.isalpha():
+        raise ValueError("invalid country code")
+    return value
+
+
+def load_json(path: str, default: dict) -> dict:
+    if not os.path.exists(path):
+        return json.loads(json.dumps(default))
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        return json.loads(json.dumps(default))
+    merged = json.loads(json.dumps(default))
+    merged.update(data)
+    if "countries" in merged:
+        merged["countries"] = sorted({normalize_country(v) for v in merged.get("countries", [])})
+    if "ips" in merged:
+        merged["ips"] = sorted({normalize_ip(v) for v in merged.get("ips", [])})
+    if "ports" in merged:
+        merged["ports"] = sorted({normalize_port(str(v)) for v in merged.get("ports", [])})
+    if "enabled" in merged:
+        merged["enabled"] = bool(merged.get("enabled", False))
+    return merged
+
+
+def save_json_locked(path: str, data: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    lock_path = path + ".lock"
+    with open(lock_path, "w", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=os.path.basename(path) + ".", text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(data, fh, indent=4, ensure_ascii=False, sort_keys=True)
+                fh.write("\n")
+            os.replace(tmp_path, path)
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+
+def edit_list(path: str, default: dict, key: str, action: str, value):
+    data = load_json(path, default)
+    current = set(data.get(key, []))
+    if action == "add":
+        if value in current:
+            print("EXISTS")
+            return 0
+        current.add(value)
+        data[key] = sorted(current)
+        save_json_locked(path, data)
+        print("ADDED")
+        return 0
+    if action == "remove":
+        if value not in current:
+            print("NOT_FOUND")
+            return 0
+        current.remove(value)
+        data[key] = sorted(current)
+        save_json_locked(path, data)
+        print("REMOVED")
+        return 0
+    print("Unsupported action", file=sys.stderr)
+    return 1
+
+
+def set_enabled(value: str):
+    data = load_json(WHITELIST_FILE, DEFAULT_WHITELIST)
+    normalized = value.lower() in {"1", "true", "yes", "y", "on"}
+    data["enabled"] = normalized
+    save_json_locked(WHITELIST_FILE, data)
+    print("ENABLED" if normalized else "DISABLED")
+    return 0
+
+
+def get_enabled():
+    data = load_json(WHITELIST_FILE, DEFAULT_WHITELIST)
+    print("true" if data.get("enabled", False) else "false")
+    return 0
+
+
+def show(which: str):
+    if which == "whitelist":
+        print(json.dumps(load_json(WHITELIST_FILE, DEFAULT_WHITELIST), indent=4, ensure_ascii=False, sort_keys=True))
+        return 0
+    if which == "blacklist":
+        print(json.dumps(load_json(BLACKLIST_FILE, DEFAULT_BLACKLIST), indent=4, ensure_ascii=False, sort_keys=True))
+        return 0
+    result = {
+        "whitelist": load_json(WHITELIST_FILE, DEFAULT_WHITELIST),
+        "blacklist": load_json(BLACKLIST_FILE, DEFAULT_BLACKLIST)
+    }
+    print(json.dumps(result, indent=4, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+def main(argv):
+    if len(argv) < 2:
+        print("Usage: config_tool.py <command> [args...]", file=sys.stderr)
+        return 1
+    cmd = argv[1]
+    try:
+        if cmd == "add-country":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "countries", "add", normalize_country(argv[2]))
+        if cmd == "remove-country":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "countries", "remove", normalize_country(argv[2]))
+        if cmd == "add-ip":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "ips", "add", normalize_ip(argv[2]))
+        if cmd == "remove-ip":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "ips", "remove", normalize_ip(argv[2]))
+        if cmd == "add-port":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "ports", "add", normalize_port(argv[2]))
+        if cmd == "remove-port":
+            return edit_list(WHITELIST_FILE, DEFAULT_WHITELIST, "ports", "remove", normalize_port(argv[2]))
+        if cmd == "add-deny-ip":
+            return edit_list(BLACKLIST_FILE, DEFAULT_BLACKLIST, "ips", "add", normalize_ip(argv[2]))
+        if cmd == "remove-deny-ip":
+            return edit_list(BLACKLIST_FILE, DEFAULT_BLACKLIST, "ips", "remove", normalize_ip(argv[2]))
+        if cmd == "add-deny-port":
+            return edit_list(BLACKLIST_FILE, DEFAULT_BLACKLIST, "ports", "add", normalize_port(argv[2]))
+        if cmd == "remove-deny-port":
+            return edit_list(BLACKLIST_FILE, DEFAULT_BLACKLIST, "ports", "remove", normalize_port(argv[2]))
+        if cmd == "set-enabled":
+            return set_enabled(argv[2])
+        if cmd == "get-enabled":
+            return get_enabled()
+        if cmd == "show":
+            which = argv[2] if len(argv) > 2 else "all"
+            return show(which)
+        print(f"Unknown command: {cmd}", file=sys.stderr)
+        return 1
+    except IndexError:
+        print("Missing argument", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))
