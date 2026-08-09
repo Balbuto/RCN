@@ -1,4 +1,4 @@
-# RKN Watcher v3.0.0
+# RKN Watcher v3.1.0
 
 RKN Watcher is a set of scripts for Debian/Ubuntu Linux servers that:
 
@@ -8,16 +8,14 @@ RKN Watcher is a set of scripts for Debian/Ubuntu Linux servers that:
 - performs atomic list updates without losing the active set on network failure;
 - uses a `systemd timer` instead of the old `cron + daemon polling` model.
 
-## Highlights of v3
+## Highlights of v3.1
 
-- fixed `ipset` wipe during a normal `apply`;
-- update now returns an error correctly when a list download fails;
-- list updates are atomic via temporary sets and `ipset swap`;
-- duplicate `iptables` rules are prevented;
-- `cron` and background daemon conflict has been removed;
-- JSON configuration is updated safely with file lock + atomic write;
-- country-based GeoIP filtering is now actually enforced via country CIDR sets;
-- uninstall no longer removes unrelated global firewall files.
+- keeps the v3 atomic `ipset` update and duplicate-rule protections;
+- protects the complete JSON configuration read-modify-write cycle with a file lock, so concurrent edits do not lose entries;
+- interprets legacy boolean values such as `"false"` safely instead of accidentally enabling GeoIP;
+- rejects IPv6 addresses and networks consistently: this release supports IPv4 `ipset` sets only;
+- validates the checksum manifest in GitHub Actions and documents checksum verification before publishing;
+- expands mock coverage for concurrent configuration edits, boolean normalization, and IPv6 rejection.
 
 ## Repository layout
 

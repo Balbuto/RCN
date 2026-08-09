@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.1.0 — 2026-08-09
+
+### Fixed
+- configuration edits no longer lose updates when several `config_tool.py` commands run at the same time: one lock now covers the full read-modify-write operation;
+- legacy boolean configuration values are normalized safely, so a string such as `"false"` does not enable GeoIP;
+- IPv6 addresses and networks are rejected before they can reach IPv4-only `ipset` sets and cause a failed apply;
+- regenerated `SHA256SUMS`: it now covers every tracked release file and no longer references absent files.
+
+### Documentation and validation
+- updated release, installation, configuration, security, migration, troubleshooting, test, and publishing documentation for v3.1;
+- added checksum validation to GitHub Actions and the publishing checklist;
+- added mock tests for concurrent configuration writes, boolean normalization, and IPv6 rejection.
+
 ## v3.0.0
 
 ### Fixes

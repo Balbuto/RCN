@@ -110,10 +110,30 @@ def normalize_ip_list(values):
     result = []
     for value in values:
         if "/" in str(value):
-            result.append(str(ipaddress.ip_network(str(value), strict=False)))
+            network = ipaddress.ip_network(str(value), strict=False)
+            if network.version != 4:
+                raise ValueError("only IPv4 addresses and networks are supported")
+            result.append(str(network))
         else:
-            result.append(str(ipaddress.ip_address(str(value))))
+            address = ipaddress.ip_address(str(value))
+            if address.version != 4:
+                raise ValueError("only IPv4 addresses and networks are supported")
+            result.append(str(address))
     return sorted(set(result))
+
+
+def normalize_enabled(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off", ""}:
+            return False
+    raise ValueError("enabled must be a boolean")
 
 
 def normalize_port_list(values):
@@ -193,7 +213,7 @@ def apply_geoip():
     whitelist = load_json(CONFIG_FILE, {"enabled": False, "countries": [], "ips": [], "ports": []})
     blacklist = load_json(BLACKLIST_FILE, {"ips": [], "ports": []})
 
-    enabled = bool(whitelist.get("enabled", False))
+    enabled = normalize_enabled(whitelist.get("enabled", False))
     whitelist_ips = normalize_ip_list(whitelist.get("ips", []))
     blacklist_ips = normalize_ip_list(blacklist.get("ips", []))
     whitelist_ports = normalize_port_list(whitelist.get("ports", []))

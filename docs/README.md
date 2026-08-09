@@ -1,4 +1,4 @@
-# Documentation
+# RKN Watcher v3.1 Documentation
 
 ## Русская версия
 - [Установка](ru/INSTALL.md)

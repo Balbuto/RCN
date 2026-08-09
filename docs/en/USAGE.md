@@ -38,6 +38,10 @@ Menu sections:
 - **Reinstall / update**;
 - **Uninstall**.
 
+### GeoIP input in v3.1
+
+Allow/deny IP entries accept IPv4 addresses and CIDRs only. Use the menu or `config_tool.py` for serialized configuration changes; after a manual configuration edit, run `sudo rkn-watcher apply`.
+
 ## Updating blocklists
 
 Manual run:

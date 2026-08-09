@@ -10,19 +10,21 @@ bash -n rkn-watcher.sh
 python3 -m py_compile config_tool.py geoip_apply.py
 chmod +x tests/run_tests.sh
 ./tests/run_tests.sh
+sha256sum -c SHA256SUMS
 ```
 
 Ожидаемый результат:
 - bash-синтаксис без ошибок;
 - Python-компиляция без ошибок;
-- `All tests passed.`
+- `All tests passed.`;
+- каждая запись в `SHA256SUMS` имеет статус `OK`.
 
 ## 2. Инициализация Git-репозитория
 
 ```bash
 git init
 git add .
-git commit -m "Release v3.0.0"
+git commit -m "Release v3.1.0"
 ```
 
 ## 3. Привязка к GitHub
@@ -36,8 +38,8 @@ git push -u origin main
 ## 4. Создание тега релиза
 
 ```bash
-git tag -a v3.0.0 -m "RKN Watcher v3.0.0"
-git push origin v3.0.0
+git tag -a v3.1.0 -m "RKN Watcher v3.1.0"
+git push origin v3.1.0
 ```
 
 ## 5. Что приложить в GitHub Release
@@ -45,8 +47,8 @@ git push origin v3.0.0
 Рекомендуется использовать содержимое `RELEASE_NOTES.ru.md` или `RELEASE_NOTES.en.md` как описание релиза.
 
 Можно приложить архивы:
-- `RCN-v3.0.0.tar.gz`
-- `RCN-v3.0.0.zip`
+- `RCN-v3.1.0.tar.gz`
+- `RCN-v3.1.0.zip`
 
 ## 6. Что не нужно коммитить
 

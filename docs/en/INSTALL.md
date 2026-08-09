@@ -69,12 +69,18 @@ Or check the status:
 sudo rkn-watcher status
 ```
 
-## Updating an installed version
+## Upgrading to v3.1
+
+For an existing installation, update the working tree, verify the release files, and run the installer upgrade:
 
 ```bash
 cd RCN
+git pull
+sha256sum -c SHA256SUMS
 sudo ./installer.sh install
 ```
+
+When prompted, choose to preserve the current configuration. Before upgrading from v3.0.x, remove any IPv6 entries from the GeoIP JSON files because v3.1 supports IPv4 entries only.
 
 ## Installing without git
 

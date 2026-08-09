@@ -53,8 +53,12 @@ Example:
 Fields:
 - `enabled` — whether GeoIP filtering is enabled;
 - `countries` — allowed countries;
-- `ips` — allowed IPs/CIDRs;
+- `ips` — allowed IPv4 addresses/CIDRs;
 - `ports` — allowed TCP ports.
+
+`enabled` should be a JSON boolean: `true` or `false`. For compatibility, the helper can read common legacy values such as `"true"` and `"false"`, but it always writes a JSON boolean.
+
+IPv6 addresses and networks are rejected: the current firewall implementation uses IPv4 only.
 
 ## blacklist.json
 
@@ -71,6 +75,10 @@ Example:
 }
 ```
 
+Fields:
+- `ips` — denied IPv4 addresses/CIDRs;
+- `ports` — denied TCP ports.
+
 ## GeoIP evaluation order
 
 1. deny IP/CIDR → `DROP`
@@ -83,6 +91,8 @@ Example:
 If the country list is empty, country-based drop is not applied and the chain ends with `RETURN`.
 
 ## Safe editing with helper tool
+
+`config_tool.py` holds one advisory lock for the full read-modify-write operation, so use it instead of simultaneous manual edits when multiple administrators or automation jobs manage the configuration.
 
 ```bash
 sudo /opt/rkn-watcher/config_tool.py add-country FI

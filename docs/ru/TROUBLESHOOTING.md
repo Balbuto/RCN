@@ -31,7 +31,7 @@ curl -I https://raw.githubusercontent.com/
 sudo tail -n 100 /var/log/rkn-watcher/update.log
 ```
 
-Важно: в v3 при ошибке загрузки старый рабочий `ipset` сохраняется.
+Важно: в v3.1 при ошибке загрузки старый рабочий `ipset` сохраняется.
 
 ## Country GeoIP не применяет список стран
 
@@ -77,6 +77,14 @@ sudo systemctl enable --now rkn-watcher-update.timer
 - временно добавить свой IP в allow;
 - либо отключить GeoIP;
 - затем скорректировать список стран.
+
+## IPv6-адрес или сеть отклонены
+
+Для v3.1 это ожидаемое поведение: текущие firewall-наборы работают только с IPv4. Удалите IPv6-запись из `whitelist.json` или `blacklist.json` либо замените её нужным IPv4-адресом/CIDR, затем повторно примените правила:
+
+```bash
+sudo rkn-watcher apply
+```
 
 ## Как быстро отключить только GeoIP
 

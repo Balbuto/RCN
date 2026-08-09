@@ -25,8 +25,14 @@ DEFAULT_BLACKLIST = {
 def normalize_ip(value: str) -> str:
     value = value.strip()
     if "/" in value:
-        return str(ipaddress.ip_network(value, strict=False))
-    return str(ipaddress.ip_address(value))
+        network = ipaddress.ip_network(value, strict=False)
+        if network.version != 4:
+            raise ValueError("only IPv4 addresses and networks are supported")
+        return str(network)
+    address = ipaddress.ip_address(value)
+    if address.version != 4:
+        raise ValueError("only IPv4 addresses and networks are supported")
+    return str(address)
 
 
 def normalize_port(value: str) -> int:
@@ -41,6 +47,21 @@ def normalize_country(value: str) -> str:
     if len(value) != 2 or not value.isalpha():
         raise ValueError("invalid country code")
     return value
+
+
+def normalize_enabled(value) -> bool:
+    """Accept JSON booleans and common legacy boolean representations."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off", ""}:
+            return False
+    raise ValueError("enabled must be a boolean")
 
 
 def load_json(path: str, default: dict) -> dict:
@@ -59,56 +80,64 @@ def load_json(path: str, default: dict) -> dict:
     if "ports" in merged:
         merged["ports"] = sorted({normalize_port(str(v)) for v in merged.get("ports", [])})
     if "enabled" in merged:
-        merged["enabled"] = bool(merged.get("enabled", False))
+        merged["enabled"] = normalize_enabled(merged.get("enabled", False))
     return merged
 
 
-def save_json_locked(path: str, data: dict) -> None:
+def save_json_atomic(path: str, data: dict) -> None:
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=os.path.basename(path) + ".", text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=4, ensure_ascii=False, sort_keys=True)
+            fh.write("\n")
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def update_json_locked(path: str, default: dict, updater):
+    """Run a read-modify-write update while holding one advisory file lock."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     lock_path = path + ".lock"
-    with open(lock_path, "w", encoding="utf-8") as lock_handle:
+    with open(lock_path, "a", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=os.path.basename(path) + ".", text=True)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                json.dump(data, fh, indent=4, ensure_ascii=False, sort_keys=True)
-                fh.write("\n")
-            os.replace(tmp_path, path)
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        data = load_json(path, default)
+        changed, result = updater(data)
+        if changed:
+            save_json_atomic(path, data)
+        return result
 
 
 def edit_list(path: str, default: dict, key: str, action: str, value):
-    data = load_json(path, default)
-    current = set(data.get(key, []))
-    if action == "add":
-        if value in current:
-            print("EXISTS")
-            return 0
-        current.add(value)
-        data[key] = sorted(current)
-        save_json_locked(path, data)
-        print("ADDED")
-        return 0
-    if action == "remove":
-        if value not in current:
-            print("NOT_FOUND")
-            return 0
-        current.remove(value)
-        data[key] = sorted(current)
-        save_json_locked(path, data)
-        print("REMOVED")
-        return 0
-    print("Unsupported action", file=sys.stderr)
-    return 1
+    def update(data):
+        current = set(data.get(key, []))
+        if action == "add":
+            if value in current:
+                return False, "EXISTS"
+            current.add(value)
+            data[key] = sorted(current)
+            return True, "ADDED"
+        if action == "remove":
+            if value not in current:
+                return False, "NOT_FOUND"
+            current.remove(value)
+            data[key] = sorted(current)
+            return True, "REMOVED"
+        raise ValueError("Unsupported action")
+
+    print(update_json_locked(path, default, update))
+    return 0
 
 
 def set_enabled(value: str):
-    data = load_json(WHITELIST_FILE, DEFAULT_WHITELIST)
-    normalized = value.lower() in {"1", "true", "yes", "y", "on"}
-    data["enabled"] = normalized
-    save_json_locked(WHITELIST_FILE, data)
+    normalized = normalize_enabled(value)
+
+    def update(data):
+        data["enabled"] = normalized
+        return True, None
+
+    update_json_locked(WHITELIST_FILE, DEFAULT_WHITELIST, update)
     print("ENABLED" if normalized else "DISABLED")
     return 0
 

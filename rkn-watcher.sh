@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="3.0.0"
+VERSION="3.1.0"
 APP_NAME="RKN Watcher"
 
 INSTALL_DIR="/opt/rkn-watcher"
@@ -148,9 +148,11 @@ import ipaddress, sys
 value = sys.argv[1].strip()
 try:
     if '/' in value:
-        ipaddress.ip_network(value, strict=False)
+        parsed = ipaddress.ip_network(value, strict=False)
     else:
-        ipaddress.ip_address(value)
+        parsed = ipaddress.ip_address(value)
+    if parsed.version != 4:
+        raise ValueError("IPv6 is not supported")
 except Exception:
     raise SystemExit(1)
 PY

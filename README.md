@@ -1,4 +1,4 @@
-# RKN Watcher v3.0.0
+# RKN Watcher v3.1.0
 
 Choose documentation language:
 

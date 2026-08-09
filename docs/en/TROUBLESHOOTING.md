@@ -31,7 +31,7 @@ Check the log:
 sudo tail -n 100 /var/log/rkn-watcher/update.log
 ```
 
-Important: in v3, the previous working `ipset` set is preserved if download fails.
+Important: in v3.1, the previous working `ipset` set is preserved if download fails.
 
 ## Country GeoIP does not apply country rules
 
@@ -77,6 +77,14 @@ Solution:
 - temporarily add your IP to allow;
 - or disable GeoIP;
 - then adjust the country list.
+
+## An IPv6 address or network is rejected
+
+This is expected in v3.1: the current firewall sets are IPv4-only. Remove the IPv6 entry from `whitelist.json` or `blacklist.json`, or replace it with the required IPv4 address/CIDR, then apply the rules again:
+
+```bash
+sudo rkn-watcher apply
+```
 
 ## Quickly disable only GeoIP
 

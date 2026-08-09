@@ -4,6 +4,9 @@ This folder contains a small set of safe mock tests that validate `iptables` / `
 
 ## What is covered
 
+### Release metadata
+- the version in `VERSION`, `rkn-watcher.sh`, README files, release notes, and changelogs stays consistent.
+
 ### For `rkn-watcher.sh`
 - correct creation of `TSPUBLOCK` and `GOVIPS` rules;
 - no duplicate hook rules in `INPUT`;
@@ -16,7 +19,8 @@ This folder contains a small set of safe mock tests that validate `iptables` / `
 - creation of `GEOIP_ALLOW_IPS`, `GEOIP_DENY_IPS`, and `GEOIP_COUNTRIES_ALLOW`;
 - correct construction of `RKN_GEOIP_HOOK` and `GEOIP_DROP` chains;
 - no duplicated `INPUT` hook on repeated apply;
-- cleanup of hook and chains when `enabled=false`.
+- cleanup of hook and chains when `enabled=false`;
+- treating a legacy `"false"` value as disabled rather than enabling GeoIP.
 
 ## Run
 

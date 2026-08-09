@@ -330,6 +330,78 @@ print('OK: remove_managed_firewall removes hooks, chains and sets')
 PY
 }
 
+run_release_metadata_tests() {
+    local version
+    version=$(tr -d '\r\n' < "$REPO_ROOT/VERSION")
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+    grep -Fq "VERSION=\"$version\"" "$REPO_ROOT/rkn-watcher.sh"
+    grep -Fq "# RKN Watcher v$version" "$REPO_ROOT/README.md"
+    grep -Fq "# RKN Watcher v$version" "$REPO_ROOT/README.en.md"
+    grep -Fq "# RKN Watcher v$version" "$REPO_ROOT/README.ru.md"
+    grep -Fq "# Release Notes — RKN Watcher v$version" "$REPO_ROOT/RELEASE_NOTES.en.md"
+    grep -Fq "v$version" "$REPO_ROOT/CHANGELOG.en.md"
+    grep -Fq "v$version" "$REPO_ROOT/CHANGELOG.ru.md"
+    printf 'OK: release metadata consistently declares v%s\n' "$version"
+}
+
+run_config_tool_tests() {
+    local root="$TMP_ROOT/config-tool"
+    mkdir -p "$root/etc"
+
+    python3 - "$REPO_ROOT/config_tool.py" "$root/config_tool.py" "$root" <<'PY'
+from pathlib import Path
+import sys
+src = Path(sys.argv[1]).read_text()
+root = sys.argv[3]
+src = src.replace(
+    'WHITELIST_FILE = "/etc/rkn-watcher/whitelist.json"',
+    f'WHITELIST_FILE = r"{root}/etc/whitelist.json"',
+)
+src = src.replace(
+    'BLACKLIST_FILE = "/etc/rkn-watcher/blacklist.json"',
+    f'BLACKLIST_FILE = r"{root}/etc/blacklist.json"',
+)
+Path(sys.argv[2]).write_text(src)
+PY
+
+    cat > "$root/etc/whitelist.json" <<'EOF2'
+{
+  "enabled": "false",
+  "countries": [],
+  "ips": [],
+  "ports": []
+}
+EOF2
+
+    [[ "$(python3 "$root/config_tool.py" get-enabled)" == "false" ]]
+    python3 "$root/config_tool.py" add-country FI >/dev/null
+    local countries=(US DE FR JP CA AU BR MX IN GB)
+    local country pid
+    local pids=()
+    for country in "${countries[@]}"; do
+        python3 "$root/config_tool.py" add-country "$country" >/dev/null &
+        pids+=("$!")
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
+    python3 "$root/config_tool.py" add-ip 192.0.2.1 >/dev/null
+    if python3 "$root/config_tool.py" add-ip 2001:db8::1 >/dev/null 2>&1; then
+        echo 'FAIL: config_tool accepted an unsupported IPv6 address' >&2
+        return 1
+    fi
+    python3 - "$root/etc/whitelist.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding='utf-8') as fh:
+    data = json.load(fh)
+assert data['enabled'] is False
+assert data['countries'] == sorted(['FI', 'US', 'DE', 'FR', 'JP', 'CA', 'AU', 'BR', 'MX', 'IN', 'GB'])
+assert data['ips'] == ['192.0.2.1']
+print('OK: config tool keeps concurrent updates, normalizes legacy booleans, and rejects IPv6')
+PY
+}
+
 run_geoip_tests() {
     local root="$TMP_ROOT/geoip"
     mkdir -p "$root/bin" "$root/state" "$root/etc" "$root/cache/countries" "$root/log"
@@ -418,11 +490,31 @@ assert state['chains']['RKN_GEOIP_HOOK'] == []
 assert state['chains']['GEOIP_DROP'] == []
 print('OK: disabling geoip clears hook and chains')
 PY
+
+    python3 - "$root/etc/whitelist.json" <<'PY'
+import json
+import sys
+path = sys.argv[1]
+with open(path, encoding='utf-8') as fh:
+    data = json.load(fh)
+data['enabled'] = 'false'
+with open(path, 'w', encoding='utf-8') as fh:
+    json.dump(data, fh)
+PY
+    python3 "$root/geoip_apply.py" apply >/dev/null
+    python3 - <<'PY'
+import json, os
+state = json.load(open(os.path.join(os.environ['STATE'], 'iptables.json')))
+assert '-m comment --comment rkn-watcher-geoip-hook -j RKN_GEOIP_HOOK' not in state['chains']['INPUT']
+print('OK: geoip handles legacy false string as disabled')
+PY
 }
 
 main() {
     extract_bash_lib
+    run_release_metadata_tests
     run_bash_logic_tests
+    run_config_tool_tests
     run_geoip_tests
     echo
     echo 'All tests passed.'

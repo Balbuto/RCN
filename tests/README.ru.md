@@ -4,6 +4,9 @@
 
 ## Что проверяется
 
+### Метаданные релиза
+- версия в `VERSION`, `rkn-watcher.sh`, README, примечаниях к релизу и changelog остаётся согласованной.
+
 ### Для `rkn-watcher.sh`
 - корректное добавление `TSPUBLOCK` и `GOVIPS`;
 - отсутствие дублирования hook-правил в `INPUT`;
@@ -16,7 +19,8 @@
 - создание `GEOIP_ALLOW_IPS`, `GEOIP_DENY_IPS`, `GEOIP_COUNTRIES_ALLOW`;
 - корректное построение цепочек `RKN_GEOIP_HOOK` и `GEOIP_DROP`;
 - отсутствие дублирования hook в `INPUT` при повторном apply;
-- очистка hook и цепочек при `enabled=false`.
+- очистка hook и цепочек при `enabled=false`;
+- обработка legacy-значения `"false"` как выключенного GeoIP.
 
 ## Запуск
 
