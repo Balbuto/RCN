@@ -1,3 +1,6 @@
+<img width="1534" height="1025" alt="image" src="https://github.com/user-attachments/assets/31818e6c-e7f1-4748-aad7-9d69f55429d9" />
+
+
 # RKN Watcher v3.1.0
 
 RKN Watcher — набор скриптов для Linux-серверов Debian/Ubuntu, который:
